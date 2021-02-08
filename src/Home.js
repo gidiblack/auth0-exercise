@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 class Home extends Component {
   render () {
-    // destructure this.props.auth
+    // destructure this.props.auth to support short calls
     const { isAuthenticated, login } = this.props.auth;
     return(
       <div>

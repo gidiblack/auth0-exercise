@@ -16,7 +16,7 @@ class Profile extends Component {
       (profile, error) => this.setState({ profile, error })
       );
   }
-  // render profile info
+  // render profile info 
   render(){
     const {profile} = this.state;
     if (!profile) return null;
@@ -24,9 +24,9 @@ class Profile extends Component {
     <h2>Profile</h2>
     <p>{profile.nickname}</p>
     <img
-      style={{ maxWidth: 50, maxHeight: 50}}
+      style={{ maxWidth: 60, maxHeight: 60}}
       src={profile.picture}
-      alt="profile pictute"
+      alt ="profile"
     />
     <pre>{JSON.stringify(profile, null, 2)}</pre>
     </>

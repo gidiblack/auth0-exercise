@@ -8,6 +8,8 @@ export default class Auth {
 		this.history = history;
 		// initialize userProfile as null
 		this.userProfile = null;
+		// initialize requested scopes here to reference later
+		this.requestedScopes = "openid profile email read:courses";
 		// instantiate auth0 webAuth
 		this.auth0 = new auth0.WebAuth({
 			domain: process.env.REACT_APP_AUTH0_DOMAIN,
@@ -15,7 +17,7 @@ export default class Auth {
 			redirectUri: process.env.REACT_APP_AUTH0_CALLBACK_URL,
 			audience: process.env.REACT_APP_AUTH0_AUDIENCE,
 			responseType: "token id_token",
-			scope: "openid profile email"
+			scope: this.requestedScopes
 			// responseType - id_token gives us a JWT token to authenticate a user when they login and - token gives us access token so the user can make API calls
 			// scope is for permissions - openid sends back a standard JWT with openid claims - profile gives us access to user data like name, nickname, picture deepending on how the user signs up - email gives us access to user email addresses
 		});
@@ -50,10 +52,16 @@ export default class Auth {
 			// calculate the Unix epoch time(number of milliseconds since jan 1, 1970) when the token will expire
 			authResult.expiresIn * 1000 + new Date().getTime()
 		);
+
+		// If there is a value on the "scope" param from authResult, use it to set scopes in the session for the user,
+		// Otherwise use the scopes as requested. If no scopes were requested, set to nothing.
+		const scopes = authResult.scope || this.requestedScopes || "";
+
 		// set localStorage items
 		localStorage.setItem("access_token", authResult.accessToken);
 		localStorage.setItem("id_token", authResult.idToken);
 		localStorage.setItem("expires_at", expiresAt);
+		localStorage.setItem("scopes", JSON.stringify(scopes));
 	};
 
 	isAuthenticated() {
@@ -69,6 +77,7 @@ export default class Auth {
 		localStorage.removeItem("access_token");
 		localStorage.removeItem("id_token");
 		localStorage.removeItem("expires_at");
+		localStorage.removeItem("scopes");
 		// clear user Profile
 		this.userProfile = null;
 		// redirect back to homepage using auth0's logout method
@@ -100,4 +109,14 @@ export default class Auth {
 			cb(profile, err);
 		});
 	};
+
+	// check if user has scopes that accepts an array of scopes
+	userHasScopes(scopes) {
+		// check in localstorage for list of scopes then split the scopes in localstorage
+		const grantedScopes = (
+			JSON.parse(localStorage.getItem("scopes")) || ""
+		).split(" ");
+		// iterate over "every" scope and return true if every one of the scopes parsed into this function are found within the list of scopes in localstorage
+		return scopes.every(scope => grantedScopes.includes(scope));
+	}
 }

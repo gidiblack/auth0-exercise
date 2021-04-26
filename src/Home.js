@@ -2,20 +2,20 @@ import React, { Component } from 'react';
 import { Link } from 'react-router-dom';
 
 class Home extends Component {
-  render () {
+  render() {
     // destructure this.props.auth to support short calls
     const { isAuthenticated, login } = this.props.auth;
-    return(
+    return (
       <div>
         <h1>Home</h1>
-        { isAuthenticated() ? (
+        {isAuthenticated() ? (
           <Link to="/profile">View Profile</Link>
         ) : (
           <button onClick={login}> Log In </button>
-        ) }
+        )}
       </div>
-     );
-  };
- }
+    );
+  }
+}
 
-export default Home
+export default Home;

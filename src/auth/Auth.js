@@ -2,6 +2,13 @@ import auth0 from 'auth0-js';
 
 const REDIRECT_ON_LOGIN = 'redirect_on_login';
 
+// private variables stored outside auth scope
+
+let _idToken = null;
+let _accessToken = null;
+let _scopes = null;
+let _expiresAt = null;
+
 // class to handle authentication
 export default class Auth {
   // parse in React Router's history so Auth can perform redirects
@@ -58,40 +65,29 @@ export default class Auth {
     });
   };
 
-  // create setSession method to save authResult data to local storage
+  // create setSession method to save authResult data to memory
   setSession = (authResult) => {
     // set the time that the access token will expire
-    const expiresAt = JSON.stringify(
-      // calculate the Unix epoch time(number of milliseconds since jan 1, 1970) when the token will expire
-      authResult.expiresIn * 1000 + new Date().getTime()
-    );
+    // calculate the Unix epoch time(number of milliseconds since jan 1, 1970) when the token will expire
+    _expiresAt = authResult.expiresIn * 1000 + new Date().getTime();
 
     // If there is a value on the "scope" param from authResult, use it to set scopes in the session for the user,
     // Otherwise use the scopes as requested. If no scopes were requested, set to nothing.
-    const scopes = authResult.scope || this.requestedScopes || '';
+    _scopes = authResult.scope || this.requestedScopes || '';
 
     // set localStorage items
-    localStorage.setItem('access_token', authResult.accessToken);
-    localStorage.setItem('id_token', authResult.idToken);
-    localStorage.setItem('expires_at', expiresAt);
-    localStorage.setItem('scopes', JSON.stringify(scopes));
+    _accessToken = authResult.accessToken;
+    // eslint-disable-next-line no-unused-vars
+    _idToken = authResult.idToken;
+    this.scheduleTokenRenewal();
   };
 
   isAuthenticated() {
-    // declare expiresAt varaible using the data in local storage
-    const expiresAt = JSON.parse(localStorage.getItem('expires_at'));
-    // return a boolean based on when the current time is less than the expiresAt time in local storage
-    return new Date().getTime() < expiresAt;
+    // return a boolean based on when the current time is less than the expiresAt time in memory
+    return new Date().getTime() < _expiresAt;
   }
 
   logout = () => {
-    // remove localStorage items
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('id_token');
-    localStorage.removeItem('expires_at');
-    localStorage.removeItem('scopes');
-    // clear user Profile
-    this.userProfile = null;
     // redirect back to homepage using auth0's logout method
     this.auth0.logout({
       clientID: process.env.REACT_APP_AUTH0_CLIENT_ID,
@@ -100,13 +96,11 @@ export default class Auth {
   };
 
   getAccessToken = () => {
-    // get accessToken from localStorage
-    const accessToken = localStorage.getItem('access_token');
     // throw an error is no accessToken is found
-    if (!accessToken) {
+    if (!_accessToken) {
       throw new Error('No access token found');
     }
-    return accessToken;
+    return _accessToken;
   };
 
   //
@@ -125,10 +119,29 @@ export default class Auth {
   // check if user has scopes that accepts an array of scopes
   userHasScopes(scopes) {
     // check in localstorage for list of scopes then split the scopes in localstorage
-    const grantedScopes = (
-      JSON.parse(localStorage.getItem('scopes')) || ''
-    ).split(' ');
+    const grantedScopes = (_scopes || '').split(' ');
     // iterate over "every" scope and return true if every one of the scopes parsed into this function are found within the list of scopes in localstorage
     return scopes.every((scope) => grantedScopes.includes(scope));
+  }
+
+  // silent token renewal function via auth0's checkSession function
+  // checkSession accepts 3 parameters and a callback function
+  // {} - allows us to specify the audience and scope *defaults to audience and scope declared in the auth0 webauth object above
+  renewToken(cb) {
+    this.auth0.checkSession({}, (err, result) => {
+      if (err) {
+        console.log(`Error: ${err.error} - ${err.error_description}.`);
+      } else {
+        // call setSession with result received if there's no error
+        this.setSession(result);
+      }
+      // cb - optional callback function that's called after the response has been received
+      if (cb) cb(err, result);
+    });
+  }
+  // function to renew token everytime it expires
+  scheduleTokenRenewal() {
+    const delay = _expiresAt - Date.now();
+    if (delay > 0) setTimeout(() => this.renewToken(), delay);
   }
 }

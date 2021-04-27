@@ -17,11 +17,22 @@ class App extends Component {
     // instantiate new Auth object parsing in the props.history so that Auth can interact with React router and have access to the history
     this.state = {
       auth: new Auth(this.props.history),
+      tokenRenewalComplete: false,
     };
+  }
+
+  // call renewToken inside componentDidMount function then set tokenRenewalComplete to true when renewToken is complete
+  // componentDidMount surpresses rendering until function called inside is complete
+  componentDidMount() {
+    this.state.auth.renewToken(() =>
+      this.setState({ tokenRenewalComplete: true })
+    );
   }
 
   render() {
     const { auth } = this.state;
+    // show loading message until the token renewal check is completed.
+    if (!this.state.tokenRenewalComplete) return 'Loading...';
     return (
       // Wrap routes in AuthContext.Provider to fulfill the second step to configure context.
       // this way all the components within the provider can authomatically access the {auth} object parsed as value prop by importing AuthContext.Consumer
